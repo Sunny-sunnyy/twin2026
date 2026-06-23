@@ -1,0 +1,15 @@
+.env
+*.env
+
+.venv/
+__pycache__/
+*.pyc
+
+node_modules/
+.next/
+
+memory/*.json
+.agents/
+.codex/
+
+.DS_Store
