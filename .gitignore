@@ -7,9 +7,18 @@ __pycache__/
 
 node_modules/
 .next/
+frontend/out/
 
 memory/*.json
 .agents/
 .codex/
 
 .DS_Store
+
+lambda-deployment.zip
+lambda-package/
+
+
+backend/lambda-deployment.zip
+backend/lambda-package/
+backend/.env

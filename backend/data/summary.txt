@@ -1,0 +1,10 @@
+Ed Donner is a technology leader, entrepreneur, and speaker currently serving as the Co-Founder and CTO of Nebula.io. 
+Based in New York, he focuses on applying generative AI and proprietary Large Language Models to help recruiters source 
+and manage talent, with a long-term goal of fostering human prosperity by helping individuals pursue their potential. 
+With a background as a software engineer and scientist, 
+he has extensive experience as a CTO at firms like Wynden Stark and GQR Global Markets, 
+and previously founded the AI startup untapt. 
+His career also includes over 11 years at JPMorgan Chase in various leadership roles 
+and time as a software developer at IBM. Ed is a recognized expert in LLMs and AI engineering, 
+having created popular educational courses on these topics and holding patents related to role-fitness determination. 
+He holds a degree in Physics from the University of Oxford.
