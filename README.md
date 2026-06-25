@@ -2,10 +2,50 @@
 
 AI Digital Twin project for Week 2 of the AI Engineer Production Track.
 
-The project is currently complete through Day 2:
+This repo is complete through `week2/day3.md`.
 
+Current status:
 - Day 1: local twin with file-based memory
-- Day 2: deployment to AWS with S3, Lambda, API Gateway, and static frontend hosting
+- Day 2: AWS deployment with Lambda, API Gateway, S3, and static frontend hosting
+- Day 3: Bedrock migration implemented in the repo backend
+- Live CDN deployment: still using the Day 2 OpenAI path with `gpt-4.1-nano` because Bedrock access is not available yet
+
+## Architecture Overview
+
+### Day 1
+
+Local development architecture:
+
+1. Next.js frontend sends a message to `POST /chat`.
+2. FastAPI backend builds the prompt from the twin persona.
+3. The model generates a reply.
+4. Conversation history is saved into local JSON files in `memory/`.
+
+### Day 2
+
+AWS deployment architecture:
+
+1. Static frontend is exported from Next.js and hosted on S3.
+2. CloudFront or S3 website hosting serves the frontend.
+3. The chat UI calls API Gateway.
+4. API Gateway invokes AWS Lambda through `backend/lambda_handler.py`.
+5. Lambda runs the FastAPI app in `backend/server.py`.
+6. Conversation memory is stored in S3 instead of local files.
+7. The deployed Day 2 runtime uses OpenAI `gpt-4.1-nano`.
+
+### Day 3
+
+Repo backend architecture:
+
+1. `backend/server.py` initializes `bedrock-runtime` via `boto3`.
+2. `backend/context.py` builds a richer system prompt from structured profile data.
+3. `backend/resources.py` loads `facts.json`, `summary.txt`, `style.txt`, and `linkedin.pdf`.
+4. `call_bedrock()` sends conversation history to Bedrock using `converse()`.
+5. Conversation state remains compatible with S3-backed memory.
+
+Important distinction:
+- The repo backend reflects the Day 3 Bedrock migration.
+- The currently accessible CDN deployment still points to the Day 2 OpenAI-backed API until Bedrock permissions are available.
 
 ## Project Structure
 
@@ -26,19 +66,24 @@ twin/
 │   ├── resources.py
 │   ├── server.py
 │   └── uv.lock
+├── day3/
+│   ├── pic1.png
+│   ├── pic2.png
+│   ├── pic3.png
+│   └── pic4.png
 ├── frontend/
 │   ├── app/
 │   ├── components/
 │   ├── public/
 │   ├── next.config.ts
 │   └── package.json
-├── memory/
 ├── week2/
 │   ├── day1.md
 │   ├── day1_summary.md
 │   ├── day2.md
 │   ├── day2_summary.md
 │   ├── day3.md
+│   ├── day3_summary.md
 │   ├── day4.md
 │   └── day5.md
 └── README.md
@@ -46,170 +91,107 @@ twin/
 
 ## Tech Stack
 
-- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS
-- Backend: FastAPI, OpenAI Python SDK, `boto3`, `pypdf`, `mangum`
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS 4
+- Backend: FastAPI, `boto3`, `pypdf`, `mangum`, `python-dotenv`
 - Python package manager: `uv`
 - Local memory: JSON files in `memory/`
-- Cloud deployment: AWS Lambda, API Gateway, S3 static hosting, S3 memory bucket
+- Cloud services: AWS Lambda, API Gateway, S3, optional CloudFront
+- AI providers across project progression:
+  - Day 1-2 and current live deployment: OpenAI `gpt-4.1-nano`
+  - Day 3 repo backend: AWS Bedrock with `BEDROCK_MODEL_ID`
 
-## Day 1
+## Key Files
 
-### Goal
+- `backend/server.py`: FastAPI app, memory management, Bedrock call path
+- `backend/context.py`: system prompt builder using profile context
+- `backend/resources.py`: loads profile resources from `backend/data/`
+- `backend/lambda_handler.py`: Lambda entrypoint via Mangum
+- `backend/deploy.py`: builds `lambda-deployment.zip` for Lambda
+- `frontend/components/twin.tsx`: chat UI and API fetch logic
+- `frontend/app/page.tsx`: landing page shell
+- `week2/day1.md`, `week2/day2.md`, `week2/day3.md`: lesson instructions
+- `week2/day1_summary.md`, `week2/day2_summary.md`, `week2/day3_summary.md`: lesson summaries
 
-Build a local AI Digital Twin that can chat through a Next.js frontend, call a FastAPI backend, and persist conversation history locally.
+## Local Development
 
-### Day 1 Architecture
+### Backend
 
-1. The user sends a message from the frontend chat UI.
-2. The frontend calls `POST /chat` on the FastAPI backend.
-3. The backend loads the twin personality and conversation history.
-4. The backend sends system prompt + history + user message to OpenAI.
-5. The assistant response is saved into `memory/<session_id>.json`.
-
-### Day 1 Local Setup
-
-Backend environment:
-
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-CORS_ORIGINS=http://localhost:3000
-```
-
-Run backend:
+From `backend/`:
 
 ```bash
-cd backend
 uv sync
 uv run server.py
 ```
 
-Run frontend:
+For local Bedrock-backed execution, set environment variables such as:
+
+```env
+DEFAULT_AWS_REGION=us-east-1
+BEDROCK_MODEL_ID=global.amazon.nova-2-lite-v1:0
+CORS_ORIGINS=http://localhost:3000
+USE_S3=false
+MEMORY_DIR=../memory
+```
+
+### Frontend
+
+From `frontend/`:
 
 ```bash
-cd frontend
 npm install
 npm run dev
 ```
 
-Local URLs:
-
+Default local URLs:
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`
 
-## Day 2
+## Deployment Workflow
 
-### Goal
+### Backend package
 
-Upgrade the twin from a local-only app to an AWS deployment with:
-
-- richer personal context from `backend/data/`
-- Lambda-compatible FastAPI backend
-- S3-based conversation memory
-- API Gateway for HTTP access
-- static frontend export hosted on S3
-
-### Day 2 Architecture
-
-1. The browser loads the static Next.js export from S3 hosting.
-2. The chat UI sends `POST /chat` to API Gateway.
-3. API Gateway invokes AWS Lambda through `backend/lambda_handler.py`.
-4. Lambda runs the FastAPI app from `backend/server.py`.
-5. The backend reads prompt context from `backend/data/`.
-6. Conversation history is loaded from and saved to the S3 memory bucket.
-7. OpenAI generates the reply and the frontend renders it.
-
-### Day 2 Backend Changes
-
-- `backend/resources.py` loads `facts.json`, `summary.txt`, `style.txt`, and `linkedin.pdf`
-- `backend/context.py` builds the richer system prompt
-- `backend/server.py` supports `USE_S3` and `S3_BUCKET`
-- `backend/lambda_handler.py` exposes the Mangum handler for Lambda
-- `backend/deploy.py` builds `lambda-deployment.zip` using the AWS Lambda Python container
-
-### Day 2 Frontend Changes
-
-- `frontend/next.config.ts` uses `output: "export"` for static deployment
-- `frontend/components/twin.tsx` calls the deployed API Gateway `/chat` endpoint
-- production assets are built with `npm run build` and uploaded from `frontend/out/`
-
-### AWS Environment Variables
-
-Lambda requires:
-
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-CORS_ORIGINS=*
-USE_S3=true
-S3_BUCKET=your-memory-bucket-name
-```
-
-Project root `.env` for local AWS-related workflow:
-
-```env
-AWS_ACCOUNT_ID=your_aws_account_id
-DEFAULT_AWS_REGION=your_region
-OPENAI_API_KEY=your_openai_api_key
-PROJECT_NAME=twin
-```
-
-### Deployment Workflow
-
-Build Lambda package:
+From `backend/`:
 
 ```bash
-cd backend
 uv sync
 uv run deploy.py
 ```
 
-Build static frontend:
+This creates `backend/lambda-deployment.zip` using the AWS Lambda Python container image.
+
+### Frontend static export
+
+From `frontend/`:
 
 ```bash
-cd frontend
 npm install
 npm run build
 ```
 
-Upload static export to S3:
+The Next.js app uses `output: "export"` in `frontend/next.config.ts`, so the build output can be uploaded to S3 static hosting.
 
-```bash
-aws s3 sync out/ s3://your-frontend-bucket/ --delete
-```
+## Deployed Endpoints
 
-### Deployed Endpoints
-
-Current project deployment used:
+Current API and frontend endpoints referenced in the project:
 
 - API root: `https://r7ewqxjlke.execute-api.ap-southeast-1.amazonaws.com/`
 - API health: `https://r7ewqxjlke.execute-api.ap-southeast-1.amazonaws.com/health`
 - Frontend website: `http://twin-frontend-487592470523.s3-website-ap-southeast-1.amazonaws.com/`
 
-### API Endpoints
+Note:
+- These live endpoints currently correspond to the Day 2 deployment path, not the Day 3 Bedrock backend.
 
-#### `GET /`
+## API Surface
 
-Returns service metadata:
+### `GET /`
 
-```json
-{
-  "message": "AI Digital Twin API",
-  "memory_enabled": true,
-  "storage": "S3"
-}
-```
+Returns service metadata.
 
-#### `GET /health`
+### `GET /health`
 
-Returns basic health information:
+Returns backend health information and active model configuration.
 
-```json
-{
-  "status": "healthy",
-  "use_s3": true
-}
-```
-
-#### `POST /chat`
+### `POST /chat`
 
 Request body:
 
@@ -229,32 +211,21 @@ Response body:
 }
 ```
 
-#### `GET /conversation/{session_id}`
+### `GET /conversation/{session_id}`
 
-Returns stored conversation history for one session.
-
-## Important Files
-
-- `backend/server.py`: FastAPI app, OpenAI call, local/S3 memory logic
-- `backend/context.py`: dynamic system prompt
-- `backend/resources.py`: personal context loader
-- `backend/lambda_handler.py`: Lambda entrypoint via Mangum
-- `backend/deploy.py`: Lambda packaging script
-- `frontend/components/twin.tsx`: chat interface and API call
-- `frontend/next.config.ts`: static export configuration
-- `memory/`: local conversation files for Day 1
-- `week2/day1.md`: original Day 1 lesson
-- `week2/day2.md`: original Day 2 lesson
-- `week2/day1_summary.md`: Day 1 study notes
-- `week2/day2_summary.md`: Day 2 study notes
+Returns stored conversation history for a session.
 
 ## Known Constraints
 
-- `CORS_ORIGINS=*` is acceptable for the lab but should be narrowed for a real deployment.
-- Conversation storage in S3 is simple and works for the course, but it is not a multi-user production design.
-- The deployed frontend is a static export, so dynamic Next.js server features are intentionally not used.
+- Bedrock migration is implemented in code, but the public deployment still falls back to OpenAI because Bedrock access is not currently available.
+- `frontend/components/twin.tsx` uses a hard-coded API Gateway URL.
+- `CORS_ORIGINS=*` may be acceptable for a lab deployment but should be narrowed for production.
+- S3 JSON conversation storage is fine for the course project, but it is not a robust multi-user production memory design.
 - There is no automated test suite yet for backend or frontend behavior.
 
-## Next README Updates
+## Course Progress
 
-Future updates should extend this README with Day 3 to Day 5 as the project moves from OpenAI-on-AWS infrastructure toward more advanced AWS-native production patterns.
+- `week2/day1.md`: local twin with memory
+- `week2/day2.md`: AWS deployment with S3 and Lambda
+- `week2/day3.md`: Bedrock migration in the backend code
+- `week2/day4.md` and `week2/day5.md`: not implemented yet in this repo

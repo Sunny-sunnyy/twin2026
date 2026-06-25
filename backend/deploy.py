@@ -4,12 +4,35 @@ import zipfile
 import subprocess
 
 
+def docker_cleanup():
+    """Remove deployment artifacts via Docker to handle files created by container users."""
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{os.getcwd()}:/var/task",
+            "--entrypoint",
+            "",
+            "public.ecr.aws/lambda/python:3.12",
+            "/bin/sh",
+            "-c",
+            "rm -rf /var/task/lambda-package /var/task/lambda-deployment.zip",
+        ],
+        check=True,
+    )
+
+
 def main():
     print("Creating Lambda deployment package...")
 
     # Clean up
     if os.path.exists("lambda-package"):
-        shutil.rmtree("lambda-package")
+        try:
+            shutil.rmtree("lambda-package")
+        except PermissionError:
+            docker_cleanup()
     if os.path.exists("lambda-deployment.zip"):
         os.remove("lambda-deployment.zip")
 
@@ -30,6 +53,8 @@ def main():
             f"{os.getcwd()}:/var/task",
             "--platform",
             "linux/amd64",  # Force x86_64 architecture
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
             "--entrypoint",
             "",  # Override the default entrypoint
             "public.ecr.aws/lambda/python:3.12",
