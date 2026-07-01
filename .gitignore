@@ -5,6 +5,7 @@
 
 # Python
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 
@@ -13,9 +14,14 @@ node_modules/
 .next/
 out/
 frontend/out/
+*.log
 
 # App runtime data
-memory/*.json
+memory/
+
+# Personal profile / local private data
+backend/data/
+backend/me.txt
 
 # Deployment artifacts
 lambda-deployment.zip
@@ -25,6 +31,7 @@ backend/lambda-package/
 
 # Terraform
 .terraform/
+.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 terraform.tfstate.d/
@@ -34,13 +41,15 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-*.tfvars
-*.tfvars.json
+*.tfvars.secret
 
 # Tooling / local metadata
+.aws/
+.antigravitycli/
 .agents/
 .codex/
 .vscode/
 .idea/
 *.swp
 .DS_Store
+Thumbs.db
