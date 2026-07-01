@@ -1,9 +1,10 @@
 #!/bin/bash
-# Script hủy toàn bộ hạ tầng của một environment đã được tạo bằng Terraform.
-# Tham số 1 là environment bắt buộc, tham số 2 là project name tùy chọn.
+# Script xóa hạ tầng của một environment cụ thể.
+# Tham số 1 là environment bắt buộc: dev | test | prod
+# Tham số 2 là project name, mặc định là `twin`.
 set -e
 
-# Bắt buộc phải chỉ rõ environment để tránh xóa nhầm workspace mặc định.
+# Kiểm tra đầu vào để tránh xóa nhầm khi quên truyền environment.
 if [ $# -eq 0 ]; then
     echo "❌ Error: Environment parameter is required"
     echo "Usage: $0 <environment>"
@@ -12,17 +13,29 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# Environment cần xóa, ví dụ: dev, test, prod.
 ENVIRONMENT=$1
-# Tiền tố tên tài nguyên; mặc định là `twin` nếu không truyền.
 PROJECT_NAME=${2:-twin}
 
 echo "🗑️ Preparing to destroy ${PROJECT_NAME}-${ENVIRONMENT} infrastructure..."
 
-# Chuyển thẳng vào thư mục Terraform để mọi lệnh destroy chạy đúng state/workspace.
+# Đi vào thư mục terraform để mọi lệnh init/workspace/destroy chạy đúng chỗ.
 cd "$(dirname "$0")/../terraform"
 
-# Kiểm tra workspace có tồn tại không; nếu không có thì dừng để tránh thao tác sai.
+# Lấy account id và region để trỏ đúng remote state trên S3.
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION=${DEFAULT_AWS_REGION:-us-east-1}
+
+# Kết nối Terraform với backend S3 đang chứa state của environment cần xóa.
+# Nếu không init đúng backend, Terraform có thể không nhìn thấy state thật để destroy.
+echo "🔧 Initializing Terraform with S3 backend..."
+terraform init -input=false \
+  -backend-config="bucket=twin-terraform-state-${AWS_ACCOUNT_ID}" \
+  -backend-config="key=${ENVIRONMENT}/terraform.tfstate" \
+  -backend-config="region=${AWS_REGION}" \
+  -backend-config="dynamodb_table=twin-terraform-locks" \
+  -backend-config="encrypt=true"
+
+# Mỗi environment có một workspace riêng. Nếu workspace không tồn tại thì không nên destroy.
 if ! terraform workspace list | grep -q "$ENVIRONMENT"; then
     echo "❌ Error: Workspace '$ENVIRONMENT' does not exist"
     echo "Available workspaces:"
@@ -30,19 +43,17 @@ if ! terraform workspace list | grep -q "$ENVIRONMENT"; then
     exit 1
 fi
 
-# Chọn đúng workspace trước khi xóa để Terraform dùng đúng state của environment đó.
+# Chọn đúng workspace trước khi destroy để không đụng nhầm state môi trường khác.
 terraform workspace select "$ENVIRONMENT"
 
 echo "📦 Emptying S3 buckets..."
 
-# Lấy AWS Account ID vì tên bucket đang được ghép kèm account id để đảm bảo unique.
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-
-# Tự dựng lại tên 2 bucket theo convention đang dùng trong Terraform.
+# Tự dựng lại tên bucket theo convention của Day 4/Day 5.
+# Việc empty bucket trước là cần thiết vì S3 bucket có object bên trong thì Terraform/AWS không xóa được.
 FRONTEND_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-frontend-${AWS_ACCOUNT_ID}"
 MEMORY_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-memory-${AWS_ACCOUNT_ID}"
 
-# Bucket S3 cần được xóa hết object trước khi Terraform/AWS có thể xóa bucket.
+# Nếu bucket frontend còn tồn tại, xóa sạch toàn bộ static files trước.
 if aws s3 ls "s3://$FRONTEND_BUCKET" 2>/dev/null; then
     echo "  Emptying $FRONTEND_BUCKET..."
     aws s3 rm "s3://$FRONTEND_BUCKET" --recursive
@@ -50,7 +61,7 @@ else
     echo "  Frontend bucket not found or already empty"
 fi
 
-# Tương tự với memory bucket: dọn sạch dữ liệu hội thoại trước khi destroy.
+# Nếu bucket memory còn tồn tại, xóa sạch conversation history trước.
 if aws s3 ls "s3://$MEMORY_BUCKET" 2>/dev/null; then
     echo "  Emptying $MEMORY_BUCKET..."
     aws s3 rm "s3://$MEMORY_BUCKET" --recursive
@@ -60,8 +71,14 @@ fi
 
 echo "🔥 Running terraform destroy..."
 
-# Production có thể cần thêm biến từ `prod.tfvars`; dev/test dùng biến inline.
-# `-auto-approve` giúp script chạy không cần xác nhận thủ công từng lần.
+# Một số flow destroy trên GitHub Actions vẫn cần file zip Lambda tồn tại để Terraform đọc metadata.
+# Nếu file thật không còn, tạo file giả tối thiểu để quá trình destroy không vỡ ở bước đọc package.
+if [ ! -f "../backend/lambda-deployment.zip" ]; then
+    echo "Creating dummy lambda package for destroy operation..."
+    echo "dummy" | zip ../backend/lambda-deployment.zip -
+fi
+
+# Prod có thể dùng thêm file biến riêng; dev/test dùng biến inline.
 if [ "$ENVIRONMENT" = "prod" ] && [ -f "prod.tfvars" ]; then
     terraform destroy -var-file=prod.tfvars -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve
 else
@@ -70,7 +87,8 @@ fi
 
 echo "✅ Infrastructure for ${ENVIRONMENT} has been destroyed!"
 echo ""
-# Workspace vẫn còn tồn tại sau khi destroy; chỉ là không còn resource bên trong state đó.
+# Workspace không tự bị xóa sau destroy; state chỉ trở thành rỗng.
+# Nếu muốn dọn sạch hoàn toàn phần local/remote workspace, chạy thêm các lệnh bên dưới.
 echo "💡 To remove the workspace completely, run:"
 echo "   terraform workspace select default"
 echo "   terraform workspace delete $ENVIRONMENT"

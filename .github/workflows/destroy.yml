@@ -1,0 +1,87 @@
+# Workflow xóa hạ tầng theo environment.
+# Ghi chú tiếng Việt:
+# - Workflow này không chạy tự động khi push.
+# - Nó chỉ chạy tay từ tab Actions vì thao tác destroy có rủi ro cao.
+# - Người chạy phải xác nhận lại environment để tránh xóa nhầm.
+name: Destroy Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      confirm:
+        description: 'Type the environment name to confirm destruction'
+        required: true
+
+# Giống workflow deploy: cần quyền OIDC để assume AWS role,
+# và quyền đọc contents để checkout source code.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  destroy:
+    # Gắn environment vào job để sau này có thể dùng approval rules nếu cần.
+    name: Destroy ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Verify confirmation
+        # Đây là lớp bảo vệ đơn giản nhưng hữu ích:
+        # người dùng phải gõ lại đúng tên environment thì workflow mới tiếp tục.
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "${{ github.event.inputs.environment }}" ]; then
+            echo "❌ Confirmation does not match environment name!"
+            echo "You entered: '${{ github.event.inputs.confirm }}'"
+            echo "Expected: '${{ github.event.inputs.environment }}'"
+            exit 1
+          fi
+          echo "✅ Destruction confirmed for ${{ github.event.inputs.environment }}"
+
+      - name: Checkout code
+        # Lấy source code để runner có script destroy và file Terraform tương ứng.
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        # Assume AWS role qua OIDC, không dùng access key tĩnh trong workflow.
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: github-actions-destroy
+          aws-region: ${{ secrets.DEFAULT_AWS_REGION }}
+
+      - name: Setup Terraform
+        # Cài Terraform CLI để script destroy có thể init workspace và chạy destroy.
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false  # Important: disable wrapper to get raw outputs
+
+      - name: Run Destroy Script
+        # Giao toàn bộ logic cleanup cho scripts/destroy.sh:
+        # - init backend
+        # - select workspace
+        # - empty S3 buckets
+        # - terraform destroy
+        run: |
+          # Set environment variables for the script
+          export AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}
+          export DEFAULT_AWS_REGION=${{ secrets.DEFAULT_AWS_REGION }}
+          
+          # Make script executable and run it
+          chmod +x scripts/destroy.sh
+          ./scripts/destroy.sh ${{ github.event.inputs.environment }}
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Destruction Complete
+        # Chỉ là step thông báo cuối để nhìn log dễ hơn.
+        run: |
+          echo "✅ Environment ${{ github.event.inputs.environment }} has been destroyed!"
