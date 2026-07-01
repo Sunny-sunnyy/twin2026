@@ -138,12 +138,17 @@ AWS_ACCOUNT_ID=your_12_digit_account_id
 DEFAULT_AWS_REGION=us-east-1
 
 # Project Configuration
+# Keep this as the AWS/Terraform resource prefix for this project.
+# It does not need to match the GitHub repository name.
 PROJECT_NAME=twin
 ```
 
 ### Step 3: Initialize Git Repository
 
 First, clean up any git repositories that might have been created by the tooling:
+
+**For this project specifically**: the repo already exists at `/AiProduction_t6_2026_wsl/projects/twin` and is already connected to `https://github.com/Sunny-sunnyy/twin2026`.
+That means you should **skip `git init` and `git remote add origin`** here, and just continue using the existing `main` branch/repo.
 
 **Mac/Linux:**
 ```bash
@@ -199,7 +204,7 @@ git commit -m "Initial commit: Digital Twin infrastructure and application"
 1. Go to [github.com](https://github.com) and sign in
 2. Click the **+** icon in the top right → **New repository**
 3. Configure your repository:
-   - Repository name: `digital-twin` (or your preferred name)
+   - Repository name: `twin2026`
    - Description: "AI Digital Twin deployed on AWS with Terraform"
    - Public or Private: Your choice (private recommended if using real personal data)
    - DO NOT initialize with README, .gitignore, or license
@@ -210,8 +215,9 @@ git commit -m "Initial commit: Digital Twin infrastructure and application"
 After creating the repository, GitHub will show you commands. Use these:
 
 ```bash
-# Add GitHub as remote (replace YOUR_USERNAME with your GitHub username)
-git remote add origin https://github.com/YOUR_USERNAME/digital-twin.git
+# Add GitHub as remote
+# Skip this if you already have origin configured for this repo.
+git remote add origin https://github.com/Sunny-sunnyy/twin2026.git
 
 # Push to GitHub (we're already on main branch from Step 3)
 git push -u origin main
@@ -761,40 +767,39 @@ Now you need to apply the resources. The command differs depending on whether th
 
 If the grep/Select-String command above found nothing, the OIDC provider doesn't exist yet. Create it along with the IAM role:
 
-**⚠️ IMPORTANT**: Replace `YOUR_GITHUB_USERNAME` with your actual GitHub username.
-For example: if your GitHub username is 'johndoe', use: `johndoe/digital-twin`  
+**⚠️ IMPORTANT**: For this repo, use exactly: `Sunny-sunnyy/twin2026`  
 **NOTE** Do not put a URL here - it should just be the Github username, not with "https://github.com/" at the front, or you will get cryptic errors!
 
 **Mac/Linux:**
 ```bash
 # Apply ALL resources including OIDC provider (this is one long command - copy and paste it all)
-terraform apply -target=aws_iam_openid_connect_provider.github -target=aws_iam_role.github_actions -target=aws_iam_role_policy_attachment.github_lambda -target=aws_iam_role_policy_attachment.github_s3 -target=aws_iam_role_policy_attachment.github_apigateway -target=aws_iam_role_policy_attachment.github_cloudfront -target=aws_iam_role_policy_attachment.github_iam_read -target=aws_iam_role_policy_attachment.github_bedrock -target=aws_iam_role_policy_attachment.github_dynamodb -target=aws_iam_role_policy_attachment.github_acm -target=aws_iam_role_policy_attachment.github_route53 -target=aws_iam_role_policy.github_additional -var="github_repository=YOUR_GITHUB_USERNAME/digital-twin"
+terraform apply -target=aws_iam_openid_connect_provider.github -target=aws_iam_role.github_actions -target=aws_iam_role_policy_attachment.github_lambda -target=aws_iam_role_policy_attachment.github_s3 -target=aws_iam_role_policy_attachment.github_apigateway -target=aws_iam_role_policy_attachment.github_cloudfront -target=aws_iam_role_policy_attachment.github_iam_read -target=aws_iam_role_policy_attachment.github_bedrock -target=aws_iam_role_policy_attachment.github_dynamodb -target=aws_iam_role_policy_attachment.github_acm -target=aws_iam_role_policy_attachment.github_route53 -target=aws_iam_role_policy.github_additional -var="github_repository=Sunny-sunnyy/twin2026"
 ```
 
 **Windows (PowerShell):**
 ```powershell
 # Apply ALL resources including OIDC provider (this is one long command - copy and paste it all)
-terraform apply -target="aws_iam_openid_connect_provider.github" -target="aws_iam_role.github_actions" -target="aws_iam_role_policy_attachment.github_lambda" -target="aws_iam_role_policy_attachment.github_s3" -target="aws_iam_role_policy_attachment.github_apigateway" -target="aws_iam_role_policy_attachment.github_cloudfront" -target="aws_iam_role_policy_attachment.github_iam_read" -target="aws_iam_role_policy_attachment.github_bedrock" -target="aws_iam_role_policy_attachment.github_dynamodb" -target="aws_iam_role_policy_attachment.github_acm" -target="aws_iam_role_policy_attachment.github_route53" -target="aws_iam_role_policy.github_additional" -var="github_repository=YOUR_GITHUB_USERNAME/digital-twin"
+terraform apply -target="aws_iam_openid_connect_provider.github" -target="aws_iam_role.github_actions" -target="aws_iam_role_policy_attachment.github_lambda" -target="aws_iam_role_policy_attachment.github_s3" -target="aws_iam_role_policy_attachment.github_apigateway" -target="aws_iam_role_policy_attachment.github_cloudfront" -target="aws_iam_role_policy_attachment.github_iam_read" -target="aws_iam_role_policy_attachment.github_bedrock" -target="aws_iam_role_policy_attachment.github_dynamodb" -target="aws_iam_role_policy_attachment.github_acm" -target="aws_iam_role_policy_attachment.github_route53" -target="aws_iam_role_policy.github_additional" -var="github_repository=Sunny-sunnyy/twin2026"
 ```
 
 #### Scenario B: OIDC Provider Already Exists (You Imported It)
 
 If you ran the import command above, you've already imported the OIDC provider. Now create just the IAM role and policies:
 
-**Note**: During the import, you were prompted for `var.github_repository`. You entered something like `your-username/digital-twin` (e.g., `ed-donner/twin`).
+**Note**: During the import, for this repo you should enter `Sunny-sunnyy/twin2026`.
 
 **⚠️ IMPORTANT**: Use the same repository name below that you used during import.
 
 **Mac/Linux:**
 ```bash
 # Apply ONLY the IAM role and policies (NOT the OIDC provider) - one long command
-terraform apply -target=aws_iam_role.github_actions -target=aws_iam_role_policy_attachment.github_lambda -target=aws_iam_role_policy_attachment.github_s3 -target=aws_iam_role_policy_attachment.github_apigateway -target=aws_iam_role_policy_attachment.github_cloudfront -target=aws_iam_role_policy_attachment.github_iam_read -target=aws_iam_role_policy_attachment.github_bedrock -target=aws_iam_role_policy_attachment.github_dynamodb -target=aws_iam_role_policy_attachment.github_acm -target=aws_iam_role_policy_attachment.github_route53 -target=aws_iam_role_policy.github_additional -var="github_repository=YOUR_GITHUB_USERNAME/your-repo-name"
+terraform apply -target=aws_iam_role.github_actions -target=aws_iam_role_policy_attachment.github_lambda -target=aws_iam_role_policy_attachment.github_s3 -target=aws_iam_role_policy_attachment.github_apigateway -target=aws_iam_role_policy_attachment.github_cloudfront -target=aws_iam_role_policy_attachment.github_iam_read -target=aws_iam_role_policy_attachment.github_bedrock -target=aws_iam_role_policy_attachment.github_dynamodb -target=aws_iam_role_policy_attachment.github_acm -target=aws_iam_role_policy_attachment.github_route53 -target=aws_iam_role_policy.github_additional -var="github_repository=Sunny-sunnyy/twin2026"
 ```
 
 **Windows (PowerShell):**
 ```powershell
 # Apply ONLY the IAM role and policies (NOT the OIDC provider) - one long command
-terraform apply -target="aws_iam_role.github_actions" -target="aws_iam_role_policy_attachment.github_lambda" -target="aws_iam_role_policy_attachment.github_s3" -target="aws_iam_role_policy_attachment.github_apigateway" -target="aws_iam_role_policy_attachment.github_cloudfront" -target="aws_iam_role_policy_attachment.github_iam_read" -target="aws_iam_role_policy_attachment.github_bedrock" -target="aws_iam_role_policy_attachment.github_dynamodb" -target="aws_iam_role_policy_attachment.github_acm" -target="aws_iam_role_policy_attachment.github_route53" -target="aws_iam_role_policy.github_additional" -var="github_repository=myrepo/digital-twin"
+terraform apply -target="aws_iam_role.github_actions" -target="aws_iam_role_policy_attachment.github_lambda" -target="aws_iam_role_policy_attachment.github_s3" -target="aws_iam_role_policy_attachment.github_apigateway" -target="aws_iam_role_policy_attachment.github_cloudfront" -target="aws_iam_role_policy_attachment.github_iam_read" -target="aws_iam_role_policy_attachment.github_bedrock" -target="aws_iam_role_policy_attachment.github_dynamodb" -target="aws_iam_role_policy_attachment.github_acm" -target="aws_iam_role_policy_attachment.github_route53" -target="aws_iam_role_policy.github_additional" -var="github_repository=Sunny-sunnyy/twin2026"
 ```
 
 ### Get the Role ARN and Clean Up
