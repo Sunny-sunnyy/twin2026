@@ -1,24 +1,46 @@
+# Environment files and secrets
 .env
-*.env
+.env.*
+!.env.example
 
+# Python
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
 
+# Node / Next.js
 node_modules/
 .next/
+out/
 frontend/out/
 
+# App runtime data
 memory/*.json
-.agents/
-.codex/
 
-.DS_Store
-
+# Deployment artifacts
 lambda-deployment.zip
 lambda-package/
-
-
 backend/lambda-deployment.zip
 backend/lambda-package/
-backend/.env
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfstate.d/
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+*.tfvars.json
+
+# Tooling / local metadata
+.agents/
+.codex/
+.vscode/
+.idea/
+*.swp
+.DS_Store
